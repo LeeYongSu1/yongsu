@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="eventMapper">
+	<!-- 이벤트 페이지 작성 -->
+	<!-- 
+	no           NUMBER NOT NULL,
+    title        VARCHAR2(100)  NOT NULL,
+    content      VARCHAR2(2000) NOT NULL,
+    writer      VARCHAR2(100)   NOT NULL,
+    regdate     DATE            DEFAULT SYSDATE,
+    PRIMARY KEY(no)
+    ); -->
+	<insert id="insert" parameterType="com.kubg.vo.EventVO" useGeneratedKeys="true" keyProperty="no">
+		<selectKey keyProperty="no" resultType="int" order="BEFORE">
+			SELECT EVENT_SEQ.NEXTVAL FROM DUAL
+		</selectKey>
+		INSERT INTO event(
+						no, title, content, writer)
+				VALUES(
+						EVENT_SEQ.nextval, #{title}, #{content}, #{writer}
+				)
+				
+	</insert>
+	
+	<select id="listPage" resultType="com.kubg.vo.EventVO" parameterType="com.kubg.vo.SearchCriteria">
+		SELECT   NO
+			   , TITLE
+			   , WRITER
+			   , REGDATE
+			   
+		  FROM ( 
+		        SELECT NO, 
+		               TITLE, 
+		               CONTENT, 
+		               WRITER, 
+		               REGDATE, 
+		               ROW_NUMBER() OVER(ORDER BY NO DESC) AS RNUM
+		         FROM EVENT
+		          WHERE 1=1 
+		         	 <include refid="search"></include>
+		                       ) MP
+		WHERE RNUM BETWEEN #{rowStart} AND #{rowEnd}
+		ORDER BY NO DESC
+	</select>
+	
+	<select id="listCount" parameterType="com.kubg.vo.SearchCriteria" resultType="int">
+		SELECT COUNT(NO)
+		   FROM EVENT
+		   WHERE 1=1
+		<include refid="search"></include>	
+		   AND NO > 0
+	</select>
+	
+	<sql id="search">
+		<if test="searchType != null">
+			<if test="searchType == 't'.toString()">AND TITLE LIKE '%' || #{keyword} || '%'</if>
+			<if test="searchType == 'c'.toString()">AND CONTENT LIKE '%' || #{keyword} || '%'</if>
+			<if test="searchType == 'w'.toString()">AND WRITER LIKE '%' || #{keyword} || '%'</if>
+			<if test="searchType == 'tc'.toString()">AND (TITLE LIKE '%' || #{keyword} || '%') or (CONTENT LIKE '%' || #{keyword} || '%')</if>
+		</if>
+	</sql>
+	
+	<select id="read" parameterType="int" resultType="com.kubg.vo.EventVO">
+		SELECT	NO
+			  , TITLE
+			  , CONTENT
+			  , WRITER
+			  , REGDATE
+		 FROM EVENT
+		 WHERE NO = #{no}
+	</select>
+	
+	<update id="update" parameterType="com.kubg.vo.EventVO">
+		UPDATE EVENT
+		   SET TITLE    =   #{title},
+		   	   CONTENT  =   #{content}
+		 WHERE NO = #{no} 
+	</update>
+	
+	<delete id="delete" parameterType="int">
+		DELETE 
+		  FROM EVENT
+		 WHERE NO = #{no} 
+	</delete>
+	
+	 <insert id="insertFile" parameterType="hashMap">
+		INSERT INTO MP_FILE(
+			FILE_NO,
+			NO,
+			ORG_FILE_NAME,
+			STORED_FILE_NAME,
+			FILE_SIZE
+		)VALUES(
+			SEQ_MP_FILE_NO.NEXTVAL,
+			#{NO},
+			#{ORG_FILE_NAME},
+			#{STORED_FILE_NAME},
+			#{FILE_SIZE}
+		)
+    </insert>
+	
+	<!-- 첨부파일 조회 -->
+<select id="selectFileList" parameterType="int" resultType="hashMap">
+	SELECT FILE_NO,
+		   ORG_FILE_NAME,
+		   ROUND(FILE_SIZE/1024,1) AS FILE_SIZE
+	  FROM MP_FILE
+	 WHERE NO = #{NO}
+	   AND DEL_GB = 'N'
+</select>
+<!-- 첨부파일 이름 -->
+   <select id="getfilename" parameterType="String" resultType="String">
+      SELECT ORG_FILE_NAME
+      FROM MP_FILE
+      WHERE NO = #{no}
+   </select>
+</mapper>
